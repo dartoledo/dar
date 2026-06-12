@@ -1,0 +1,156 @@
+version: '3.8'
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.22
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+    ports:
+      - "9200:9200"
+    networks:
+      - monitoring
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.17.22
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+    networks:
+      - monitoring
+
+  apm-server:
+    image: docker.elastic.co/apm/apm-server:7.17.22
+    container_name: apm-server
+    command: >
+      apm-server -e -E apm-server.rum.enabled=true -E setup.kibana.host=kibana:5601 -E setup.template.settings.index.number_of_replicas=0 -E apm-server.kibana.enabled=true -E apm-server.kibana.host=kibana:5601 -E output.elasticsearch.hosts=["elasticsearch:9200"]
+    ports:
+      - "8200:8200"
+    depends_on:
+      - elasticsearch
+      - kibana
+    networks:
+      - monitoring
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    networks:
+      - monitoring
+
+  mcp-server:
+    image: node:20
+    container_name: mcp-server
+    command: npx -y mcp-proxy --port 8003 --sseEndpoint /sse -- npx -y @elastic/mcp-server-elasticsearch
+    ports:
+      - "8003:8003"
+    environment:
+      - ES_URL=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - monitoring
+
+  mcp-prometheus:
+    image: node:20
+    container_name: mcp-prometheus
+    command: npx -y mcp-proxy --port 8001 --sseEndpoint /sse -- npx -y prometheus-mcp stdio
+    ports:
+      - "8001:8001"
+    environment:
+      - PROMETHEUS_URL=http://prometheus:9090
+    depends_on:
+      - prometheus
+    networks:
+      - monitoring
+
+  mcp-playwright:
+    image: mcr.microsoft.com/playwright:v1.60.0-jammy
+    container_name: mcp-playwright
+    command: bash -c "npm install -g @automatalabs/mcp-server-playwright playwright && npx playwright install && Xvfb :99 -screen 0 1280x960x24 -nolisten tcp & export DISPLAY=:99 && npx -y mcp-proxy --port 8002 --sseEndpoint /sse -- npx -y @automatalabs/mcp-server-playwright"
+    ports:
+      - "8002:8002"
+    ipc: host
+    security_opt:
+      - seccomp:unconfined
+    networks:
+      - monitoring
+
+  go-app:
+    build: .
+    container_name: go-app
+    ports:
+      - "8080:8080"
+    environment:
+      - ELASTIC_APM_SERVER_URL=http://apm-server:8200
+      - ELASTIC_APM_SERVICE_NAME=hello-world-go
+      - ELASTIC_APM_ENVIRONMENT=development
+    depends_on:
+      - apm-server
+    networks:
+      - monitoring
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:7.17.22
+    container_name: filebeat
+    user: root
+    volumes:
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - elasticsearch
+    networks:
+      - monitoring
+
+  pgvector:
+    image: pgvector/pgvector:pg16
+    container_name: pgvector
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=rag_knowledge
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./init-runbook.sql:/docker-entrypoint-initdb.d/init-runbook.sql:ro
+    networks:
+      - monitoring
+
+  cve-analytics:
+    build: ./grype-report
+    container_name: cve-analytics
+    ports:
+      - "8081:8081"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - monitoring
+
+  chainlit:
+    build: ./chainlit
+    container_name: chainlit
+    ports:
+      - "8000:8000"
+    environment:
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+    depends_on:
+      - mcp-server
+      - mcp-playwright
+      - mcp-prometheus
+    networks:
+      - monitoring
+
+networks:
+  monitoring:
+    driver: bridge

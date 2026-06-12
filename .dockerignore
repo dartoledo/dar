@@ -1,0 +1,23 @@
+# Ignore Node.js / Playwright
+node_modules/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Ignore Python
+__pycache__/
+*.pyc
+*.pyo
+.chainlit/
+
+# Ignore Git
+.git/
+
+# Ignore sensitive env files
+.env
+.env.*
+!.env.example
+
+# Ignore generated reports
+cve-report.html

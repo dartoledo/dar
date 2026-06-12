@@ -1,0 +1,3 @@
+admin:password123
+testuser:hello2024
+admin:!admin

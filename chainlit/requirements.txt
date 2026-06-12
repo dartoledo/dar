@@ -1,0 +1,7 @@
+chainlit
+langchain
+langchain-openai
+langchain-core
+mcp[sse]
+pydantic
+langchain-mcp-adapters
