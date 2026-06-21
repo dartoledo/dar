@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pgvector-init-script
+  namespace: default
+data:
+  init-runbook.sql: |
+    CREATE EXTENSION IF NOT EXISTS vector;
+    
+    CREATE TABLE IF NOT EXISTS runbooks (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        content TEXT NOT NULL,
+        embedding vector(3) -- Using a dummy 3-dimensional vector for now. Dify will re-embed this later with Gemini.
+    );
+    
+    INSERT INTO runbooks (title, content, embedding)
+    VALUES (
+        '500 Internal Server Error - Login Page',
+        'SYMPTOM: The Go application login page is throwing a 500 Internal Server Error, and APM traces show a FATAL log regarding unexpected characters in password processing. CAUSE: There is a known bug where any password containing an exclamation point (!) will crash the system. ACTION: If you see this in the logs, immediately locate the user causing the traffic (e.g. admin:!admin), and temporarily suspend the account or patch the Go application to properly escape special characters in passwords.',
+        '[0.1, 0.2, 0.3]'
+    );
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgvector
+  namespace: default
+spec:
+  ports:
+    - port: 5432
+      targetPort: 5432
+  selector:
+    app: pgvector
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: pgvector
+  namespace: default
+spec:
+  serviceName: "pgvector"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pgvector
+  template:
+    metadata:
+      labels:
+        app: pgvector
+    spec:
+      containers:
+      - name: pgvector
+        image: pgvector/pgvector:pg16@sha256:00ba258a66dac104fd5171074a0084462a64a1369d8513f3d0a634e2f24d15bc
+        env:
+        - name: POSTGRES_USER
+          value: "postgres"
+        - name: POSTGRES_PASSWORD
+          value: "postgres"
+        - name: POSTGRES_DB
+          value: "rag_knowledge"
+        ports:
+        - containerPort: 5432
+          name: postgres
+        volumeMounts:
+        - name: pgvector-data
+          mountPath: /var/lib/postgresql/data
+        - name: init-script
+          mountPath: /docker-entrypoint-initdb.d/init-runbook.sql
+          subPath: init-runbook.sql
+      volumes:
+      - name: init-script
+        configMap:
+          name: pgvector-init-script
+  volumeClaimTemplates:
+  - metadata:
+      name: pgvector-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 5Gi

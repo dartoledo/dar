@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.22
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.22@sha256:a0e01a200a316bac8d661e1acae368fd40c9c618847205a12f443c09c36e6eb3
     container_name: elasticsearch
     environment:
       - discovery.type=single-node
@@ -14,7 +14,7 @@ services:
       - monitoring
 
   kibana:
-    image: docker.elastic.co/kibana/kibana:7.17.22
+    image: docker.elastic.co/kibana/kibana:7.17.22@sha256:065f3b76fde18bbdc5259e76c093bc77b9349ebff3cd5a30f925150a73f7d909
     container_name: kibana
     environment:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
@@ -26,7 +26,7 @@ services:
       - monitoring
 
   apm-server:
-    image: docker.elastic.co/apm/apm-server:7.17.22
+    image: docker.elastic.co/apm/apm-server:7.17.22@sha256:d896d4ed6df10f786cb1ce9420195f84068d93bc934c607d207ec3954ba4b8a6
     container_name: apm-server
     command: >
       apm-server -e -E apm-server.rum.enabled=true -E setup.kibana.host=kibana:5601 -E setup.template.settings.index.number_of_replicas=0 -E apm-server.kibana.enabled=true -E apm-server.kibana.host=kibana:5601 -E output.elasticsearch.hosts=["elasticsearch:9200"]
@@ -39,7 +39,7 @@ services:
       - monitoring
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:latest@sha256:69f5241418838263316593f7274a304b095c40bcf22e57272865da91bd60a8ac
     container_name: prometheus
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -49,7 +49,7 @@ services:
       - monitoring
 
   mcp-server:
-    image: node:20
+    image: node:20@sha256:8f693eaa7e0a8e71560c9a82b55fd54c2ae920a2ba5d2cde28bac7d1c01c9ba5
     container_name: mcp-server
     command: npx -y mcp-proxy --port 8003 --sseEndpoint /sse -- npx -y @elastic/mcp-server-elasticsearch
     ports:
@@ -62,7 +62,7 @@ services:
       - monitoring
 
   mcp-prometheus:
-    image: node:20
+    image: node:20@sha256:8f693eaa7e0a8e71560c9a82b55fd54c2ae920a2ba5d2cde28bac7d1c01c9ba5
     container_name: mcp-prometheus
     command: npx -y mcp-proxy --port 8001 --sseEndpoint /sse -- npx -y prometheus-mcp stdio
     ports:
@@ -75,7 +75,7 @@ services:
       - monitoring
 
   mcp-playwright:
-    image: mcr.microsoft.com/playwright:v1.60.0-jammy
+    image: mcr.microsoft.com/playwright:v1.60.0-jammy@sha256:e1529a04087193966ea15d4a1617345bdaa0791690a24ab2c42b65f9ce5b2cdc
     container_name: mcp-playwright
     command: bash -c "npm install -g @automatalabs/mcp-server-playwright playwright && npx playwright install && Xvfb :99 -screen 0 1280x960x24 -nolisten tcp & export DISPLAY=:99 && npx -y mcp-proxy --port 8002 --sseEndpoint /sse -- npx -y @automatalabs/mcp-server-playwright"
     ports:
@@ -87,7 +87,7 @@ services:
       - monitoring
 
   go-app:
-    build: .
+    image: ghcr.io/dartoledo/dar-go-app:main
     container_name: go-app
     ports:
       - "8080:8080"
@@ -101,7 +101,7 @@ services:
       - monitoring
 
   filebeat:
-    image: docker.elastic.co/beats/filebeat:7.17.22
+    image: docker.elastic.co/beats/filebeat:7.17.22@sha256:d10bc241808f3eb07bf8c52bad7b3a2cbba9ff9b37902ecf41a4f9d30bfd5511
     container_name: filebeat
     user: root
     volumes:
@@ -114,7 +114,7 @@ services:
       - monitoring
 
   pgvector:
-    image: pgvector/pgvector:pg16
+    image: pgvector/pgvector:pg16@sha256:00ba258a66dac104fd5171074a0084462a64a1369d8513f3d0a634e2f24d15bc
     container_name: pgvector
     environment:
       - POSTGRES_USER=postgres
@@ -128,7 +128,7 @@ services:
       - monitoring
 
   cve-analytics:
-    build: ./grype-report
+    image: ghcr.io/dartoledo/dar-cve-analytics:main
     container_name: cve-analytics
     ports:
       - "8081:8081"
@@ -138,7 +138,7 @@ services:
       - monitoring
 
   chainlit:
-    build: ./chainlit
+    image: ghcr.io/dartoledo/dar-chainlit:main
     container_name: chainlit
     ports:
       - "8000:8000"

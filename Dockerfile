@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.21-alpine AS builder
+FROM golang:1.21-alpine@sha256:2414035b086e3c42b99654c8b26e6f5b1b1598080d65fd03c7f499552ff4dc94 AS builder
 
 WORKDIR /app
 
@@ -17,7 +17,8 @@ RUN go mod download
 RUN go build -o server main.go
 
 # Run stage
-FROM alpine:latest
+FROM alpine:latest@sha256:5b10f432ef3da1b8d4c7eb6c487f2f5a8f096bc91145e68878dd4a5019afde11
+LABEL org.opencontainers.image.source="https://github.com/dartoledo/dar"
 WORKDIR /app
 
 # Ensure we have CA certificates if needed for external calls

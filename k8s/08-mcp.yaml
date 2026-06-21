@@ -1,0 +1,114 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-server
+  namespace: default
+spec:
+  ports:
+    - port: 8003
+      targetPort: 8003
+  selector:
+    app: mcp-server
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-server
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-server
+  template:
+    metadata:
+      labels:
+        app: mcp-server
+    spec:
+      containers:
+      - name: mcp-server
+        image: node:20@sha256:8f693eaa7e0a8e71560c9a82b55fd54c2ae920a2ba5d2cde28bac7d1c01c9ba5
+        command: ["npx", "-y", "mcp-proxy", "--port", "8003", "--sseEndpoint", "/sse", "--", "npx", "-y", "@elastic/mcp-server-elasticsearch"]
+        env:
+        - name: ES_URL
+          value: "http://elasticsearch:9200"
+        ports:
+        - containerPort: 8003
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-prometheus
+  namespace: default
+spec:
+  ports:
+    - port: 8001
+      targetPort: 8001
+  selector:
+    app: mcp-prometheus
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-prometheus
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-prometheus
+  template:
+    metadata:
+      labels:
+        app: mcp-prometheus
+    spec:
+      containers:
+      - name: mcp-prometheus
+        image: node:20@sha256:8f693eaa7e0a8e71560c9a82b55fd54c2ae920a2ba5d2cde28bac7d1c01c9ba5
+        command: ["npx", "-y", "mcp-proxy", "--port", "8001", "--sseEndpoint", "/sse", "--", "npx", "-y", "prometheus-mcp", "stdio"]
+        env:
+        - name: PROMETHEUS_URL
+          value: "http://prometheus:9090"
+        ports:
+        - containerPort: 8001
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-playwright
+  namespace: default
+spec:
+  ports:
+    - port: 8002
+      targetPort: 8002
+  selector:
+    app: mcp-playwright
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-playwright
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-playwright
+  template:
+    metadata:
+      labels:
+        app: mcp-playwright
+    spec:
+      containers:
+      - name: mcp-playwright
+        image: mcr.microsoft.com/playwright:v1.60.0-jammy@sha256:e1529a04087193966ea15d4a1617345bdaa0791690a24ab2c42b65f9ce5b2cdc
+        command: ["bash", "-c", "npm install -g @automatalabs/mcp-server-playwright playwright && npx playwright install && Xvfb :99 -screen 0 1280x960x24 -nolisten tcp & export DISPLAY=:99 && npx -y mcp-proxy --port 8002 --sseEndpoint /sse -- npx -y @automatalabs/mcp-server-playwright"]
+        ports:
+        - containerPort: 8002
+        volumeMounts:
+        - name: dshm
+          mountPath: /dev/shm
+      volumes:
+      - name: dshm
+        emptyDir:
+          medium: Memory

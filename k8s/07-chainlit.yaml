@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: chainlit-secrets
+  namespace: default
+type: Opaque
+stringData:
+  # Base64 encoding is not required for stringData
+  # Ensure you update this secret manually using `kubectl edit secret` before applying, or use SOPS/ExternalSecrets.
+  DEEPSEEK_API_KEY: "CHANGE_ME"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chainlit
+  namespace: default
+spec:
+  ports:
+    - port: 8000
+      targetPort: 8000
+  selector:
+    app: chainlit
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chainlit
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: chainlit
+  template:
+    metadata:
+      labels:
+        app: chainlit
+    spec:
+      containers:
+      - name: chainlit
+        image: ghcr.io/dartoledo/dar-chainlit:main
+        env:
+        - name: DEEPSEEK_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: chainlit-secrets
+              key: DEEPSEEK_API_KEY
+        ports:
+        - containerPort: 8000

@@ -1,0 +1,59 @@
+# WARNING: This DaemonSet may be blocked by GKE Autopilot's admission controller.
+# Autopilot usually handles its own Cloud Logging integration natively.
+# Only apply this if you specifically need Filebeat exporting to Elasticsearch.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: filebeat
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: filebeat
+  template:
+    metadata:
+      labels:
+        app: filebeat
+    spec:
+      containers:
+      - name: filebeat
+        image: docker.elastic.co/beats/filebeat:7.17.22@sha256:d10bc241808f3eb07bf8c52bad7b3a2cbba9ff9b37902ecf41a4f9d30bfd5511
+        # Run as root is required by Filebeat to read logs, but Autopilot may forbid this.
+        securityContext:
+          runAsUser: 0
+        volumeMounts:
+        - name: config
+          mountPath: /usr/share/filebeat/filebeat.yml
+          subPath: filebeat.yml
+          readOnly: true
+        - name: varlog
+          mountPath: /var/log
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          name: filebeat-config
+      - name: varlog
+        hostPath:
+          path: /var/log
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: filebeat-config
+  namespace: default
+data:
+  filebeat.yml: |
+    filebeat.inputs:
+    - type: container
+      paths: 
+        - '/var/log/containers/*.log'
+    
+    processors:
+      - add_docker_metadata:
+          host: "unix:///var/run/docker.sock"
+    
+    output.elasticsearch:
+      hosts: ["elasticsearch:9200"]
+      username: "elastic"
+      password: "changeme"

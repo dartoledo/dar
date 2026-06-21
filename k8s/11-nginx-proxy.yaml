@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-proxy-config
+  namespace: default
+data:
+  nginx.conf: |
+    events {}
+    http {
+      server {
+        listen 5601;
+        location / { proxy_pass http://kibana:5601; }
+      }
+      server {
+        listen 8080;
+        location / { proxy_pass http://go-app:8080; }
+      }
+      server {
+        listen 8081;
+        location / { proxy_pass http://cve-analytics:8081; }
+      }
+      server {
+        listen 8000;
+        location / { proxy_pass http://chainlit:8000; }
+      }
+    }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: main-loadbalancer
+  namespace: default
+spec:
+  type: LoadBalancer
+  selector:
+    app: nginx-proxy
+  ports:
+    - name: kibana
+      port: 5601
+      targetPort: 5601
+    - name: go-app
+      port: 8080
+      targetPort: 8080
+    - name: cve
+      port: 8081
+      targetPort: 8081
+    - name: chainlit
+      port: 8000
+      targetPort: 8000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-proxy
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx-proxy
+  template:
+    metadata:
+      labels:
+        app: nginx-proxy
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        ports:
+        - containerPort: 5601
+        - containerPort: 8080
+        - containerPort: 8081
+        - containerPort: 8000
+        volumeMounts:
+        - name: config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+      volumes:
+      - name: config
+        configMap:
+          name: nginx-proxy-config

@@ -1,0 +1,71 @@
+name: Publish to GHCR
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository }}
+
+jobs:
+  build-and-push-images:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for go-app
+        id: meta-go
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}-go-app
+
+      - name: Build and push go-app
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta-go.outputs.tags }}
+          labels: ${{ steps.meta-go.outputs.labels }}
+
+      - name: Extract metadata (tags, labels) for cve-analytics
+        id: meta-cve
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}-cve-analytics
+
+      - name: Build and push cve-analytics
+        uses: docker/build-push-action@v5
+        with:
+          context: ./grype-report
+          push: true
+          tags: ${{ steps.meta-cve.outputs.tags }}
+          labels: ${{ steps.meta-cve.outputs.labels }}
+
+      - name: Extract metadata (tags, labels) for chainlit
+        id: meta-chainlit
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}-chainlit
+
+      - name: Build and push chainlit
+        uses: docker/build-push-action@v5
+        with:
+          context: ./chainlit
+          push: true
+          tags: ${{ steps.meta-chainlit.outputs.tags }}
+          labels: ${{ steps.meta-chainlit.outputs.labels }}

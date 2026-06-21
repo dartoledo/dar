@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: apm-server
+  namespace: default
+spec:
+  ports:
+    - port: 8200
+      targetPort: 8200
+  selector:
+    app: apm-server
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apm-server
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: apm-server
+  template:
+    metadata:
+      labels:
+        app: apm-server
+    spec:
+      containers:
+      - name: apm-server
+        image: docker.elastic.co/apm/apm-server:7.17.22@sha256:d896d4ed6df10f786cb1ce9420195f84068d93bc934c607d207ec3954ba4b8a6
+        args:
+          - -e
+          - -E
+          - apm-server.rum.enabled=true
+          - -E
+          - setup.kibana.host=kibana:5601
+          - -E
+          - setup.template.settings.index.number_of_replicas=0
+          - -E
+          - apm-server.kibana.enabled=true
+          - -E
+          - apm-server.kibana.host=kibana:5601
+          - -E
+          - output.elasticsearch.hosts=["elasticsearch:9200"]
+        ports:
+        - containerPort: 8200

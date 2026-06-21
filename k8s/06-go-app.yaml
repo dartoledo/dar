@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: go-app
+  namespace: default
+spec:
+  ports:
+    - port: 8080
+      targetPort: 8080
+  selector:
+    app: go-app
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: go-app
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: go-app
+  template:
+    metadata:
+      labels:
+        app: go-app
+    spec:
+      containers:
+      - name: go-app
+        image: ghcr.io/dartoledo/dar-go-app:main
+        env:
+        - name: ELASTIC_APM_SERVER_URL
+          value: "http://apm-server:8200"
+        - name: ELASTIC_APM_SERVICE_NAME
+          value: "hello-world-go"
+        - name: ELASTIC_APM_ENVIRONMENT
+          value: "development"
+        ports:
+        - containerPort: 8080

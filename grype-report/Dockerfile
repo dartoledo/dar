@@ -1,4 +1,5 @@
-FROM python:3.11-alpine
+FROM python:3.11-alpine@sha256:f417205fec4ccb0d5023fdb5ecb4c8eba31c1834f94dcbcd1a2e8325fa7a7b89
+LABEL org.opencontainers.image.source="https://github.com/dartoledo/dar"
 
 # Install Docker CLI to query the socket
 RUN apk add --no-cache docker-cli curl
